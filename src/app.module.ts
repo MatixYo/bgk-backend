@@ -7,6 +7,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { HttpModule } from '@nestjs/axios';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
+import { SearchService } from './search/search.service';
+import { SearchController } from './search/search.controller';
 
 @Module({
   imports: [
@@ -37,7 +39,7 @@ import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
     }),
     HttpModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [AppController, SearchController],
+  providers: [AppService, SearchService],
 })
 export class AppModule {}
