@@ -1,8 +1,8 @@
-import { Controller, Post } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 
 @Controller('search')
 export class SearchController {
-  @Post()
+  @Get()
   findAll(): any[] {
     return ['This action returns all cats'];
   }
