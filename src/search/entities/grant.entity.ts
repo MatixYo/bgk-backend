@@ -9,7 +9,7 @@ export class Grant {
   name: string;
 
   @Column({ nullable: true })
-  text: string;
+  content: string;
 
   @Column({ nullable: true })
   link: string;

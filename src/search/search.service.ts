@@ -99,17 +99,18 @@ export class SearchService implements OnApplicationBootstrap {
     };
   }
 
-  async findPolish(search: string): Promise<any> {
+  async findPolish(words: string[]): Promise<any> {
     const query = this.grantRepository.createQueryBuilder('grant');
-    query.where(
-      'LOWER(grant.name) LIKE LOWER(:search) OR LOWER(grant.text) LIKE LOWER(:search)',
-      { search },
-    );
+    query.where('grant.name ~* :search OR grant.content ~* :search', {
+      search: words.join('|'),
+    });
     const rows = await query.getMany();
 
-    const re = new RegExp(search, 'gi');
-    rows.forEach((row) => {
-      row.text.replace(re, (m) => `<b>${m}</b>`);
+    words.forEach((word) => {
+      const re = new RegExp(word, 'gi');
+      rows.forEach((row) => {
+        row.content.replace(re, (m) => `<b>${m}</b>`);
+      });
     });
 
     return rows;
@@ -208,14 +209,14 @@ export class SearchService implements OnApplicationBootstrap {
     return Array.from(root.querySelectorAll('#grants-list > .row')).map(
       (row) => {
         const name = row.querySelector('h3')?.textContent;
-        const text = row.querySelector('.content-list')?.textContent;
+        const content = row.querySelector('.content-list')?.textContent;
         const link = row
           .querySelector('a.button-blue-share')
           ?.getAttribute('href');
 
         return {
           name,
-          text,
+          content,
           link,
         };
       },
