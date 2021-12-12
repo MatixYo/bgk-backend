@@ -7,7 +7,7 @@ export class SearchController {
 
   @Get()
   async findAll(@Query('q') q: string): Promise<any[]> {
-    const response = await this.searchService.findOnEc(q);
+    const response = await this.searchService.find(q);
     return response;
   }
 }
