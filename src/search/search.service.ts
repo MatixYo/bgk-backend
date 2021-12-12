@@ -3,10 +3,48 @@ import { HttpService } from '@nestjs/axios';
 import { lastValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
 import * as faker from 'faker/locale/pl';
+import { random } from 'lodash';
+import pkdList from './data/pkd';
+import * as natural from 'natural';
+
+const lexicon = new natural.Lexicon('EN', 'N');
+const ruleSet = new natural.RuleSet('EN');
+const tagger = new natural.BrillPOSTagger(lexicon, ruleSet);
+const tokenizer = new natural.WordTokenizer();
+const nounInflector = new natural.NounInflector();
 
 const IS_NIP = /^\d{10}$/;
 const IS_REGON = /^\d{14}$/;
 const IS_PKD = /^\d{2}\.\d{2}.[A-Z]$/;
+
+function getRandomPkd(): string {
+  const k = Object.keys(pkdList);
+  return k[random(0, k.length - 1)];
+}
+
+function getRandomPkds(): string[] {
+  const pkds = [];
+  for (let i = 0; i < random(1, 10); i++) {
+    pkds.push(getRandomPkd());
+  }
+  return pkds;
+}
+
+function getRandomCompany(): any {
+  const [pkd, otherPkds] = getRandomPkds();
+  return {
+    name: faker.company.companyName(),
+    nip: faker.datatype.number({ min: 1e9, max: 1e10 - 1 }),
+    regon: faker.datatype.number({ min: 1e13, max: 1e14 - 1 }),
+    pkd,
+    otherPkds,
+    address: faker.address.streetAddress(),
+    city: faker.address.city(),
+    zip: faker.address.zipCode(),
+    country: 'Poland',
+    established: faker.date.past(4),
+  };
+}
 
 @Injectable()
 export class SearchService {
@@ -30,6 +68,8 @@ export class SearchService {
       }
     }
 
+    const wordsFromPkd = await this.wordsFromPkds(pkdList);
+    wordsList.push(...wordsFromPkd);
     const rows = await this.findByWords(wordsList);
 
     return {
@@ -41,12 +81,15 @@ export class SearchService {
 
   async findByWords(words: string[]): Promise<any[]> {
     const text = words.join(' ');
-    console.log(`Searching for: ${text}`);
     return this.findOnEc(text);
   }
 
   async findOnEc(text: string): Promise<any[]> {
     try {
+      if (!text) {
+        return [];
+      }
+      console.log(`Searching ${text}`);
       return lastValueFrom(
         this.httpService
           .post(
@@ -71,28 +114,29 @@ export class SearchService {
 
   async findByNIP(nip: string): Promise<any[]> {
     return {
-      ...this.randomCompany(),
+      ...getRandomCompany(),
       nip,
     };
   }
 
   async findByRegon(regon: string): Promise<any[]> {
     return {
-      ...this.randomCompany(),
+      ...getRandomCompany(),
       regon,
     };
   }
 
-  randomCompany(): any {
-    return {
-      name: faker.company.companyName(),
-      nip: faker.datatype.number({ min: 1e9, max: 1e10 - 1 }),
-      regon: faker.datatype.number({ min: 1e13, max: 1e14 - 1 }),
-      pkd: '12.12.A',
-      address: faker.address.streetAddress(),
-      city: faker.address.city(),
-      zip: faker.address.zipCode(),
-      country: 'Poland',
-    };
+  async wordsFromPkds(pkds: any[]): Promise<any[]> {
+    const words = pkds
+      .map((pkd) => pkdList[pkd].desc)
+      .map((desc) => tokenizer.tokenize(desc))
+      .map((words) => tagger.tag(words).taggedWords)
+      .flat()
+      .filter((word) => ['NN', 'NNS'].includes(word.tag))
+      .map((word) =>
+        word.tag === 'NNS' ? nounInflector.singularize(word.token) : word.token,
+      )
+      .map((word) => word.toLowerCase());
+    return words;
   }
 }
