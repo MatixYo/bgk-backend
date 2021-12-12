@@ -1,11 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { lastValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
 import * as faker from 'faker/locale/pl';
 import { random } from 'lodash';
 import pkdList from './data/pkd';
+import pkdPlList from './data/pkdPl';
 import * as natural from 'natural';
+import { parse } from 'node-html-parser';
+import { Repository } from 'typeorm';
+import { Grant } from './entities/grant.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import * as translate from 'translate-google';
 
 const lexicon = new natural.Lexicon('EN', 'N');
 const ruleSet = new natural.RuleSet('EN');
@@ -46,8 +52,12 @@ function getRandomCompany(): any {
 }
 
 @Injectable()
-export class SearchService {
-  constructor(private httpService: HttpService) {}
+export class SearchService implements OnApplicationBootstrap {
+  constructor(
+    private httpService: HttpService,
+    @InjectRepository(Grant)
+    private grantRepository: Repository<Grant>,
+  ) {}
 
   async find(query: string): Promise<any> {
     const words = query.split(' ');
@@ -73,13 +83,50 @@ export class SearchService {
 
     const wordsFromPkd = await this.wordsFromPkds(pkdList);
     wordsList.push(...wordsFromPkd);
+    const polishWords = await translate(wordsList.slice(0, 5), {
+      from: 'en',
+      to: 'pl',
+    });
+
     const rows = await this.findByWords(wordsList);
+    const feRows = await this.findPolish(polishWords);
 
     return {
       company,
       rows,
+      feRows,
       wordsList,
     };
+  }
+
+  async findPolish(search: string): Promise<any> {
+    const query = this.grantRepository.createQueryBuilder('grant');
+    query.where(
+      'LOWER(grant.name) LIKE LOWER(:search) OR LOWER(grant.text) LIKE LOWER(:search)',
+      { search },
+    );
+    const rows = await query.getMany();
+
+    const re = new RegExp(search, 'gi');
+    rows.forEach((row) => {
+      row.text.replace(re, (m) => `<b>${m}</b>`);
+    });
+
+    return rows;
+  }
+
+  async onApplicationBootstrap(): Promise<void> {
+    const rows = [];
+    for (let i = 1; i <= 13; i++) {
+      const onPage = await this.findOnFe(i);
+      rows.push(...onPage);
+    }
+    await this.grantRepository.delete({});
+    const grantsEntities = this.grantRepository.create(
+      rows.filter((r) => r.name !== null),
+    );
+    const inserted = await this.grantRepository.insert(grantsEntities);
+    console.log(inserted.identifiers.length);
   }
 
   async findByWords(words: string[]): Promise<any[]> {
@@ -141,5 +188,37 @@ export class SearchService {
       )
       .map((word) => word.toLowerCase());
     return words;
+  }
+
+  async findOnFe(page: number): Promise<any> {
+    const response = await lastValueFrom(
+      this.httpService.get(
+        'https://www.funduszeeuropejskie.gov.pl/umbraco/surface/FiltersSurface/getDotacii',
+        {
+          params: {
+            id: '26361',
+            str: `strona=${page}/3756=Mikro, małe i średnie przedsiębiorstwa`,
+            lang: 'pl',
+            isPreview: false,
+          },
+        },
+      ),
+    );
+    const root = parse(response.data);
+    return Array.from(root.querySelectorAll('#grants-list > .row')).map(
+      (row) => {
+        const name = row.querySelector('h3')?.textContent;
+        const text = row.querySelector('.content-list')?.textContent;
+        const link = row
+          .querySelector('a.button-blue-share')
+          ?.getAttribute('href');
+
+        return {
+          name,
+          text,
+          link,
+        };
+      },
+    );
   }
 }

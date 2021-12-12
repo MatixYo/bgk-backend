@@ -35,10 +35,12 @@
     "faker": "^5.5.3",
     "lodash": "^4.17.21",
     "natural": "^5.1.11",
+    "node-html-parser": "^5.1.0",
     "pg": "^8.7.1",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^7.2.0",
+    "translate-google": "^1.5.0",
     "typeorm": "^0.2.41",
     "typeorm-naming-strategies": "^2.0.0"
   },
