@@ -15,29 +15,34 @@ export class SearchService {
   async find(query: string): Promise<any> {
     const words = query.split(' ');
     let company = null;
-    let rows = [];
+    const wordsList = [];
     const pkdList = [];
 
     for (const word of words) {
-      if (IS_NIP.test(word)) {
+      if (IS_NIP.test(word) && !company) {
         company = await this.findByNIP(word);
-      } else if (IS_REGON.test(word)) {
+      } else if (IS_REGON.test(word) && !company) {
         company = await this.findByRegon(word);
       } else if (IS_PKD.test(word)) {
         pkdList.push(word);
       } else {
-        rows = await this.findByPhrase(word);
+        wordsList.push(word);
       }
     }
+
+    const rows = await this.findByWords(wordsList);
 
     return {
       company,
       rows,
+      wordsList,
     };
   }
 
-  async findByPhrase(phrase: string): Promise<any[]> {
-    return this.findOnEc(phrase);
+  async findByWords(words: string[]): Promise<any[]> {
+    const text = words.join(' ');
+    console.log(`Searching for: ${text}`);
+    return this.findOnEc(text);
   }
 
   async findOnEc(text: string): Promise<any[]> {
@@ -50,7 +55,7 @@ export class SearchService {
             {
               params: {
                 apiKey: 'SEDIA',
-                text,
+                text: `${text}*`,
                 pageSize: 50,
                 pageNumber: 1,
               },
