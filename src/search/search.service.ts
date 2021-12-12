@@ -31,13 +31,12 @@ function getRandomPkds(): string[] {
 }
 
 function getRandomCompany(): any {
-  const [pkd, otherPkds] = getRandomPkds();
+  const pkds = getRandomPkds();
   return {
     name: faker.company.companyName(),
     nip: faker.datatype.number({ min: 1e9, max: 1e10 - 1 }),
     regon: faker.datatype.number({ min: 1e13, max: 1e14 - 1 }),
-    pkd,
-    otherPkds,
+    pkds: pkds.map((code) => ({ code, ...pkdList[code] })),
     address: faker.address.streetAddress(),
     city: faker.address.city(),
     zip: faker.address.zipCode(),
@@ -66,6 +65,10 @@ export class SearchService {
       } else {
         wordsList.push(word);
       }
+    }
+
+    if (company) {
+      pkdList.push(...company.pkds.map((p) => p.code));
     }
 
     const wordsFromPkd = await this.wordsFromPkds(pkdList);
