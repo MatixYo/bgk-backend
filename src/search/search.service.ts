@@ -39,7 +39,7 @@ function getRandomPkds(): string[] {
 function getRandomCompany(): any {
   const pkds = getRandomPkds();
   return {
-    name: faker.company.companyName(),
+    name: 'Tomek Nowak', //faker.company.companyName(),
     nip: faker.datatype.number({ min: 1e9, max: 1e10 - 1 }),
     regon: faker.datatype.number({ min: 1e13, max: 1e14 - 1 }),
     pkds: pkds.map((code) => ({ code, ...pkdList[code] })),
@@ -47,7 +47,7 @@ function getRandomCompany(): any {
     city: faker.address.city(),
     zip: faker.address.zipCode(),
     country: 'Poland',
-    established: faker.date.past(4),
+    established: faker.date.past(6),
   };
 }
 
